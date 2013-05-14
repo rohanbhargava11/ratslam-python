@@ -1,18 +1,16 @@
-#import local_view_cell as lv
+import local_view_cell as lv
 from pylab import *
-from mpl_toolkits.mplot3d import Axes3D
 #import line_profiler
-import numpy as np
+
 class PoseCellNetwork:
     
     def __init__(self, shape, **kwargs):
         
         self.shape = kwargs.pop('pc_shape', shape) # [61, 61, 36]
-        #print 'The shape of pose cells is',shape
         PC_DIM_XY = self.shape[0]
         PC_DIM_TH = self.shape[2]
         
-        self.posecells = zeros(shape) #3d
+        self.posecells = zeros(shape)
         
         self.vt_inject = kwargs.pop('vt_inject', 0.1)
         self.pc_vtrans_scaling = kwargs.pop('vtrans_scaling', float64(0.1)) 
@@ -122,7 +120,6 @@ class PoseCellNetwork:
         
         (x,y,z) = unravel_index(self.posecells.argmax(), self.posecells.shape)
         
-        
         z_posecells=zeros(self.shape) 
         
         zval = self.posecells[ix_(xywrap[x:x+7], xywrap[y:y+7], thwrap[z:z+7])]
@@ -162,18 +159,13 @@ class PoseCellNetwork:
         
         vtrans = ododelta[0]*self.pc_vtrans_scaling 
         vrot = ododelta[1] 
-        act_x=0
-        
-        act_y=0
-        act_th=0
-        self.arg_posecells=np.argwhere(self.posecells>np.max(self.posecells)-(np.max(self.posecells)/2))
+
         #if this visual template has been activated before, inject more 
         # energy into the pc associated with it.
         if (v_temp.first != True): 
-            print 'entered here'
             act_x = min([max([round(v_temp.x_pc), 1]), self.shape[0]]) 
             act_y = min([max([round(v_temp.y_pc), 1]), self.shape[0]])
-            act_th = min([max([round(v_temp.z_pc), 1]), self.shape[2]])
+            act_th = min([max([round(v_temp.th_pc), 1]), self.shape[2]])
     
             energy = self.vt_inject * 1.0/30.0 * \
                      (30.0 - math.exp(1.2 * v_temp.activity))
@@ -261,18 +253,8 @@ class PoseCellNetwork:
                              roll(self.posecells, shift2, 2) * (weight)
         
         self.max_pc = self.get_pc_max(self.avg_xywrap, self.avg_thwrap)
-        self.args_visual_posecells=[act_x,act_y,act_th]
-        
-        
-          
-        
-        
-        
-        #plt.draw()
-            #print 'coordinates for visual',act_x,act_y,act_th
-        #print 'pose cell activity',self.posecells[self.max_pc[0]][self.max_pc[1]][self.max_pc[2]],'localtion',self.max_pc
-        
-        return self.max_pc,self.arg_posecells,self.args_visual_posecells,self.posecells # it is here where it returns the pc max
+    
+        return self.max_pc
 
         
         

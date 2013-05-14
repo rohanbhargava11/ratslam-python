@@ -8,20 +8,20 @@ import os, os.path
 import csv
 import time
 from functools import partial
-
+import cv2
 from itertools import imap
 from pylab import  *
 import numpy
-import cv2
 
 #import line_profiler
 
 class RatSLAM (object):
     
-    def __init__(self, image_source):
+    def __init__(self, image_source,vide):
         self.image_source = image_source
-            
-        pc_shape = [30,30,36]
+        self.vid=vide    
+        print self.vid
+        pc_shape = [61,61,36]
         
         self.view_templates = self.initialize_view_templates(pc_shape)
         self.visual_odometer = self.initialize_odo()
@@ -37,11 +37,11 @@ class RatSLAM (object):
                                   x_range = slice(54,615),
                                   y_range = slice(119,280),
                                   shift_match=20)
-        print 'Simple template is',simple_template                         
+                                  
         templates = ViewTemplateCollection(simple_template,
                                            global_decay=0.1,
-                                           match_threshold=0.2)
-        im = self.image_source
+                                           match_threshold=0.09)
+        im = self.image_source#[0]
         #templates.update(zeros(561))
         
         templates.curr_vc = templates.match(im, pc_shape[0]/2.0,
@@ -52,7 +52,7 @@ class RatSLAM (object):
 
     #initializing Visual Odometer
     def initialize_odo(self):
-        im0 = self.image_source
+        im0 = self.image_source#[0]
         vod = SimpleVisualOdometer()
         vod.update(im0)
         return vod
@@ -64,13 +64,12 @@ class RatSLAM (object):
         xy_pc = pc_shape[0]/2+1 
         th_pc = pc_shape[2]/2+1 
         
-        pcnet.posecells[xy_pc, xy_pc, th_pc] = 1 # initalize the matrix with shape
+        pcnet.posecells[xy_pc, xy_pc, th_pc] = 1
 
         v_temp = self.view_templates[0]
-        pcnet.update(self.visual_odometer.delta, v_temp) #determines the effect of visual template on poe cell network
+        pcnet.update(self.visual_odometer.delta, v_temp)
         #pcmax = pcnet.get_pc_max(pcnet.avg_xywrap, pcnet.avg_thwrap)
-		# I think so it doesn't plot all the activites because it only reutrns the mzximum value of pose cell index 
-		# and we need to get it return all the pose cell activity so that I can understand the pattern.
+
         return pcnet
 
     def initialize_experience_map(self):
@@ -93,44 +92,34 @@ class RatSLAM (object):
         return self.experience_map.current_exp
 
     #@profile
-    def evolve(self,image):
+    def evolve(self):
         c = self.time_step
         self.time_step += 1
-        
-        self.current_image = image#self.image_source[c]
+        rval,test_image=self.vid.read()
+        print type(test_image)
+        self.current_image =cv2.cvtColor(test_image,cv2.COLOR_RGB2GRAY)
+        #self.image_source[c]
         
         avg_xywrap = self.pose_cell_network.avg_xywrap
         avg_thwrap = self.pose_cell_network.avg_thwrap
-        pcmax = self.pose_cell_network.get_pc_max(avg_xywrap, avg_thwrap)
-        #print 'entering visual template'
+        pcmax = self.pose_cell_network.get_pc_max(avg_xywrap, avg_thwrap) # It is trying to get the x,y,theta of the pose cells.
         
         # get visual template
-        v_temp= self.view_templates.match(self.current_image, pcmax[0],
+        v_temp = self.view_templates.match(self.current_image, pcmax[0],
                                                            pcmax[1],
-                                                           pcmax[2])
-        
-	match_scores=self.view_templates.return_match_scores()
-	print min(match_scores)
-	#print v_temp,v_temp.first,rohan
+                                                           pcmax[2]) # returns vc of match or new visual template and append the pcmax value to it
+    
         # get odometry
-        self.current_odo = self.visual_odometer.update(self.current_image)
-        print self.current_odo
+        self.current_odo = self.visual_odometer.update(self.current_image) # calculates incremental translation and rotation change
 
         #get pcmax
-        pcmax,b,arg_visual_cell,posecells_1=self.pose_cell_network.update(self.visual_odometer.delta, v_temp) 
-        #pcmax = self.pose_cell_network.get_pc_max(self.pose_cell_network.avg_xywrap, 
-#                                                  self.pose_cell_network.avg_thwrap)
-        #if a==pcmax:
-		#	print 'it is equal'
-		
+        self.pose_cell_network.update(self.visual_odometer.delta, v_temp) 
+        pcmax = self.pose_cell_network.get_pc_max(self.pose_cell_network.avg_xywrap, 
+                                                  self.pose_cell_network.avg_thwrap)
+        
         self.current_pose_cell = pcmax
-        self.all_pose_cell=b
-        self.args_visual_posecells=arg_visual_cell
-        self.posecells_1=posecells_1
-        self.match_scores=match_scores
         
         self.experience_map.update(self.visual_odometer.delta[0], 
                                    self.visual_odometer.delta[1], 
                                    pcmax[0], pcmax[1], pcmax[2],
                                    v_temp)
-	#print b

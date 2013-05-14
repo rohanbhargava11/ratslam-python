@@ -1,7 +1,4 @@
 #!/usr/bin/env python
-import roslib,rospy,sys
-roslib.load_manifest('ratslam-python')
-from cv_bridge import CvBridge,CvBridgeError
 import ratslam
 import sys
 import time
@@ -12,7 +9,6 @@ from matplotlib.pylab import *
 from mpl_toolkits.mplot3d import Axes3D
 import cPickle as pkl
 import cv2
-from sensor_msgs.msg import Image
 
 def draw_position(x, y):
     scatter(x,y)
@@ -24,10 +20,20 @@ def draw_x_y_z(pcmax, xcoord, ycoord, thcoord, subplot):
     ax3.set_ylim3d([0, 61])
     ax3.set_zlim3d([0, 36])
 
-def callback(data):
-    #rval,image_source=video.read()
-    image_source=array(bridge.imgmsg_to_cv(data,"bgr8"))
-    image_source=cv2.cvtColor(image_source,cv2.COLOR_BGR2GRAY)
+
+def main(): 
+    # TODO use argparse
+    #video_path = sys.argv[1]
+    output_path = sys.argv[1]
+
+    pkl_state = False
+    wait_for_key = False
+
+    
+    #image_source = ratslam.VideoSource(video_path, grayscale=True)
+    video=cv2.VideoCapture('/home/rohan/Downloads/video002.mp4')
+    rval,image_source=video.read()
+    image_source=cv2.cvtColor(image_source,cv2.COLOR_RGB2GRAY)
     driver = ratslam.RatSLAM(image_source,video)
  
     xcoord = []
@@ -101,23 +107,6 @@ def callback(data):
             #savefig(os.path.join(output_path, 'output%06i.png' % i))
             #d.set_xlim([-50, 100])
             #d.set_ylim([0, 120])
-  
-def main(): 
-    # TODO use argparse
-    #video_path = sys.argv[1]
-    output_path = sys.argv[1]
-
-    pkl_state = False
-    wait_for_key = False
-
-    bridge=CvBridge()
-    topic='image_raw/image_decompressed'
-    image_sub=rospy.Subscriber(topic_camera,Image,callback)
-    print "about to spin"
-    rospy.spin()
-    #image_source = ratslam.VideoSource(video_path, grayscale=True)
-    #video=cv2.VideoCapture('/home/rohan/Downloads/video002.mp4')
-    
 
     
 

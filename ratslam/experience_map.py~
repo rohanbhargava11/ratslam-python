@@ -1,6 +1,6 @@
 from pylab import *
 import logging
-#import line_profiler
+import line_profiler
 
 # Helper Functions
 
@@ -136,7 +136,7 @@ class ExperienceMap:
 
         return new_exp
     
-    #@profile
+    @profile
     def update(self, vtrans, vrot, x_pc, y_pc, th_pc, vt):
         """ Update the experience map
         
